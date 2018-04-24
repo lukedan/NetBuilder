@@ -7,6 +7,8 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
-        
+        <local:NodeGraphEditor x:Name="editor" Margin="0,0,0,98" />
+        <Button Content="Save Graph" HorizontalAlignment="Left" Margin="54,370,0,0" VerticalAlignment="Top" Width="75" Click="SaveGraphEvent"/>
+        <Button Content="Load Graph" HorizontalAlignment="Left" Margin="134,370,0,0" VerticalAlignment="Top" Width="75" Click="LoadGraphEvent"/>
     </Grid>
 </Window>

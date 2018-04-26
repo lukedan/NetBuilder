@@ -49,6 +49,12 @@ namespace NetBuilder {
 		);
 	}
 
+	public enum ConstantType {
+		None,
+		String,
+		Enum
+	}
+
 	public class NodeStructure : DependencyObject {
 		public string Name {
 			get { return (string)GetValue(NameProperty); }
@@ -56,6 +62,22 @@ namespace NetBuilder {
 		}
 		public static readonly DependencyProperty NameProperty = DependencyProperty.Register(
 			"Name", typeof(string), typeof(NodeStructure), new PropertyMetadata("Node")
+		);
+
+		public ConstantType ConstantType {
+			get { return (ConstantType)GetValue(ConstantTypeProperty); }
+			set { SetValue(ConstantTypeProperty, value); }
+		}
+		public static readonly DependencyProperty ConstantTypeProperty = DependencyProperty.Register(
+			"ConstantType", typeof(ConstantType), typeof(NodeStructure), new PropertyMetadata(ConstantType.None)
+		);
+
+		public List<string> ConstantParams {
+			get { return (List<string>)GetValue(ConstantParamsProperty); }
+			set { SetValue(ConstantParamsProperty, value); }
+		}
+		public static readonly DependencyProperty ConstantParamsProperty = DependencyProperty.Register(
+			"ConstantParams", typeof(List<string>), typeof(NodeStructure)
 		);
 
 		public List<Variable> Inputs {

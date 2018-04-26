@@ -25,6 +25,7 @@ namespace NetBuilder {
 
 		private Dictionary<DataSocket, List<DataLink>> forwardLinkMap =
 			new Dictionary<DataSocket, List<DataLink>>();
+		private Dictionary<string, int> countMapping = new Dictionary<string, int>();
 
 		private VariableType dragTargetType;
 		private DataSocket dragTempTarget;
@@ -62,12 +63,32 @@ namespace NetBuilder {
 		);
 
 
+		private void AddLink(DataSocket from, DataSocket to) {
+			if (!forwardLinkMap.TryGetValue(from, out List<DataLink> list)) {
+				forwardLinkMap.Add(from, list = new List<DataLink>());
+			}
+			list.Add(new DataLink(from, to));
+			InvalidateVisual();
+		}
+		private void RemoveLink(DataSocket to) {
+			List<DataLink> links = forwardLinkMap[to.InputSource];
+			Debug.Assert(links.RemoveAll((obj) => {
+				return obj.ToSocket == to;
+			}) == 1);
+			if (links.Count == 0) {
+				forwardLinkMap.Remove(to.InputSource);
+			}
+			to.InputSource = null;
+			InvalidateVisual();
+		}
+
 		public GraphData DumpGraph() {
 			Dictionary<string, NodeData> nodeDict = new Dictionary<string, NodeData>();
 			foreach (UIElement elem in nodeLayer.Children) {
 				NodeUI node = (NodeUI)elem;
 				NodeData nodeData = new NodeData {
 					StructureName = node.Structure.Name,
+					ConstantValue = node.ConstantValue,
 					InputConnections = new Dictionary<string, ConnectionData>()
 				};
 				foreach (DataSocket socket in node.InputSockets) {
@@ -86,19 +107,52 @@ namespace NetBuilder {
 			}
 			return new GraphData { Nodes = nodeDict };
 		}
-		private void AddLink(DataSocket from, DataSocket to) {
-			if (!forwardLinkMap.TryGetValue(from, out List<DataLink> list)) {
-				forwardLinkMap.Add(from, list = new List<DataLink>());
+		public List<NodeUI> SortDAG() {
+			Dictionary<NodeUI, int> inDegrees = new Dictionary<NodeUI, int>();
+			Dictionary<DataSocket, NodeUI> socketOwners = new Dictionary<DataSocket, NodeUI>();
+			List<NodeUI> result = new List<NodeUI>();
+			foreach (UIElement elem in nodeLayer.Children) {
+				NodeUI node = (NodeUI)elem;
+				int inDeg = 0;
+				foreach (DataSocket socket in node.InputSockets) {
+					if (socket.InputSource != null) {
+						socketOwners.Add(socket, node);
+						++inDeg;
+					}
+				}
+				if (inDeg == 0) {
+					result.Add(node);
+				} else {
+					inDegrees.Add(node, inDeg);
+				}
 			}
-			list.Add(new DataLink(from, to));
-			InvalidateVisual();
+			for (int i = 0; i < result.Count; ++i) {
+				NodeUI node = result[i];
+				foreach (DataSocket socket in node.OutputSockets) {
+					if (forwardLinkMap.TryGetValue(socket, out List<DataLink> links)) {
+						foreach (DataLink link in links) {
+							NodeUI toNode = socketOwners[link.ToSocket];
+							if (--inDegrees[toNode] == 0) {
+								result.Add(toNode);
+								inDegrees.Remove(toNode);
+							}
+						}
+					}
+				}
+			}
+			if (inDegrees.Count > 0) {
+				throw new InvalidOperationException("graph is not a DAG");
+			}
+			return result;
 		}
 		public void SetGraph(GraphData graph) {
 			Clear();
 			Registry reg = Registry;
 			Dictionary<string, NodeUI> nodeReg = new Dictionary<string, NodeUI>();
 			foreach (var pair in graph.Nodes) {
-				nodeReg.Add(pair.Key, AddNode(reg.QueryNodeStructure(pair.Value.StructureName), pair.Key));
+				NodeUI node = AddNode(reg.QueryNodeStructure(pair.Value.StructureName), pair.Key);
+				node.ConstantValue = pair.Value.ConstantValue;
+				nodeReg.Add(pair.Key, node);
 			}
 			foreach (var pair in graph.Nodes) {
 				NodeUI nodeUI = nodeReg[pair.Key];
@@ -122,6 +176,7 @@ namespace NetBuilder {
 			scale.ScaleX = scale.ScaleY = 1.0;
 			drag.StopDrag();
 			forwardLinkMap.Clear();
+			countMapping.Clear();
 			dragTempTarget = null;
 			draggingLinks = null;
 			InvalidateVisual();
@@ -385,10 +440,50 @@ namespace NetBuilder {
 				RenderTransform = nodeTranslation,
 				Background = Brushes.Transparent,
 				Structure = structure,
-				Label = name == null ? structure.Name : name
+				Label = name ?? structure.Name
 			};
+			if (name != null) {
+				node.Label = name;
+			} else {
+				HashSet<string> strs = new HashSet<string>();
+				foreach (UIElement elem in nodeLayer.Children) {
+					NodeUI nodeUI = (NodeUI)elem;
+					strs.Add(nodeUI.Label);
+				}
+				string prefix = string.Format(
+					"{0}{1}_", structure.Name[0].ToString().ToLower(), structure.Name.Substring(1)
+				);
+				if (!countMapping.TryGetValue(structure.Name, out int index)) {
+					countMapping.Add(structure.Name, index);
+				}
+				for (; ; ++index) {
+					string newStr = prefix + index.ToString();
+					if (!strs.Contains(newStr)) {
+						node.Label = newStr;
+						countMapping[structure.Name] = index + 1;
+						break;
+					}
+				}
+			}
 			node.SizeChanged += (sender, e) => {
 				InvalidateVisual();
+			};
+			node.RequestDelete += (sender, e) => {
+				foreach (DataSocket socket in node.InputSockets) {
+					if (socket.InputSource != null) {
+						RemoveLink(socket);
+					}
+				}
+				foreach (DataSocket socket in node.OutputSockets) {
+					if (forwardLinkMap.TryGetValue(socket, out List<DataLink> links)) {
+						foreach (DataLink link in links) {
+							link.ToSocket.InputSource = null;
+						}
+						forwardLinkMap.Remove(socket);
+						InvalidateVisual();
+					}
+				}
+				nodeLayer.Children.Remove(node);
 			};
 			nodeLayer.Children.Add(node);
 			return node;

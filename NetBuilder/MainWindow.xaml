@@ -7,8 +7,24 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
-        <local:NodeGraphEditor x:Name="editor" Margin="0,0,0,98" />
-        <Button Content="Save Graph" HorizontalAlignment="Left" Margin="54,370,0,0" VerticalAlignment="Top" Width="75" Click="SaveGraphEvent"/>
-        <Button Content="Load Graph" HorizontalAlignment="Left" Margin="134,370,0,0" VerticalAlignment="Top" Width="75" Click="LoadGraphEvent"/>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <local:NodeGraphArea x:Name="graphArea" Grid.Row="0" RegistryChanged="RegistryChangedEvent" />
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <WrapPanel Grid.Column="0">
+                <Button Content="Save graph" Margin="5" Click="SaveGraphEvent" />
+                <Button Content="Load graph" Margin="5" Click="LoadGraphEvent" />
+                <Button Content="Generate code" Margin="5" Click="GenCodeEvent" />
+            </WrapPanel>
+            <ComboBox x:Name="structureList" Grid.Column="1" Margin="5" />
+            <Button Content="Add" Grid.Column="2" Margin="5" Click="AddNodeEvent" />
+        </Grid>
     </Grid>
 </Window>

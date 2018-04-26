@@ -68,9 +68,6 @@
     <Compile Include="Node\DataSocketArray.xaml.cs">
       <DependentUpon>DataSocketArray.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Graph\NodeGraphEditor.xaml.cs">
-      <DependentUpon>NodeGraphEditor.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Graph\Registry.cs" />
     <Compile Include="PythonRegistry.cs" />
     <Page Include="MainWindow.xaml">
@@ -87,10 +84,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Page Include="Graph\NodeGraphArea.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Graph\NodeGraphEditor.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

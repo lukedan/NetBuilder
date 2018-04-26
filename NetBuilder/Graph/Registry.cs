@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using IronPython;
+using System.IO;
 
 namespace NetBuilder {
 	[DataContract]
@@ -16,7 +17,7 @@ namespace NetBuilder {
 	[DataContract]
 	public struct NodeData {
 		[DataMember]
-		public string StructureName;
+		public string StructureName, ConstantValue;
 		[DataMember]
 		public Dictionary<string, ConnectionData> InputConnections;
 	}
@@ -24,6 +25,41 @@ namespace NetBuilder {
 	public struct GraphData {
 		[DataMember]
 		public Dictionary<string, NodeData> Nodes;
+	}
+
+	public struct CodeGenerator {
+		public string NullString;
+		public Dictionary<NodeStructure, dynamic> Generators;
+
+		public void GenerateCode(List<NodeUI> dag, StreamWriter writer) {
+			HashSet<string> varNames = new HashSet<string>();
+			Dictionary<DataSocket, string> varNameMapping = new Dictionary<DataSocket, string>();
+			foreach (NodeUI node in dag) {
+				List<string> variables = new List<string>();
+				// add input names
+				foreach (DataSocket socket in node.InputSockets) {
+					if (socket.InputSource != null) {
+						variables.Add(varNameMapping[socket.InputSource]);
+					}
+				}
+				// allocate & add output names
+				foreach (DataSocket socket in node.OutputSockets) {
+					string
+						originalName = string.Format("{0}_{1}", node.Label, socket.LinkVariable.Name),
+						name = originalName;
+					for (int i = 0; varNames.Contains(name); ++i) {
+						name = string.Format("{0}_{1}", originalName, i);
+					}
+					varNames.Add(name);
+					varNameMapping.Add(socket, name);
+					variables.Add(name);
+				}
+				if (node.Structure.ConstantType != ConstantType.None) {
+					variables.Add(node.ConstantValue);
+				}
+				writer.Write(Generators[node.Structure](variables));
+			}
+		}
 	}
 
 	public class Registry {
@@ -46,6 +82,8 @@ namespace NetBuilder {
 			nodeStructures.TryGetValue(name, out NodeStructure structure);
 			return structure;
 		}
+
+		public Dictionary<string, CodeGenerator> CodeGenerators { get; } = new Dictionary<string, CodeGenerator>();
 
 		public IEnumerable<NodeStructure> NodeStructures {
 			get {

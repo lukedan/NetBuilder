@@ -22,10 +22,25 @@ namespace NetBuilder {
 				registry = reg;
 			}
 
-			public DataType Type(string name) {
+			public Tuple<DataType, NodeStructure> Type(
+				string name, ConstantType constantType, params dynamic[] constantParams
+			) {
 				DataType type = new DataType { Name = name };
 				registry.Registry.RegisterDataType(type);
-				return type;
+				NodeStructure structure = null;
+				if (constantType != ConstantType.None) {
+					structure = new NodeStructure {
+						Name = name + "Constant",
+						ConstantType = constantType,
+						ConstantParams = constantParams.Cast<string>().ToList(),
+						Inputs = new List<Variable>(),
+						Outputs = new List<Variable> {
+							new Variable(type, "value")
+						}
+					};
+					registry.Registry.RegisterNodeStructure(structure);
+				}
+				return new Tuple<DataType, NodeStructure>(type, structure);
 			}
 			public NodeStructure Node(string name, dynamic inputs, dynamic outputs) {
 				IEnumerable<Variable>
@@ -38,6 +53,16 @@ namespace NetBuilder {
 				};
 				registry.Registry.RegisterNodeStructure(structure);
 				return structure;
+			}
+			public void Generator(string name, string nullString, IDictionary<object, dynamic> dict) {
+				CodeGenerator gen = new CodeGenerator {
+					NullString = nullString,
+					Generators = new Dictionary<NodeStructure, dynamic>()
+				};
+				foreach (var pair in dict) {
+					gen.Generators[(NodeStructure)pair.Key] = pair.Value;
+				}
+				registry.Registry.CodeGenerators.Add(name, gen);
 			}
 		}
 
@@ -54,8 +79,9 @@ namespace NetBuilder {
 			runtime.LoadAssembly(typeof(NodeStructure).Assembly);
 			runtime.LoadAssembly(typeof(Variable).Assembly);
 
-			scope.SetVariable("register", new RegisterProxy(this));
 			source.Execute(scope);
+
+			scope.GetVariable("RegisterAll")(new RegisterProxy(this));
 		}
 	}
 }
